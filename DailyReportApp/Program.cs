@@ -11,7 +11,7 @@ namespace DailyReportApp
 {
     static class Program
     {
-        private static string[] columnNames = { "FLOOR", "LONGDATE", "SHORTDATE" };
+        
         private static OracleConnection GetDBConnection()
         {
             string host = "127.0.0.1";
@@ -22,44 +22,59 @@ namespace DailyReportApp
             return DBOracleUtils.GetDBConnection(host, port, sid, user, password);
         }
 
-        private static string[,] QueryAllData(OracleConnection conn)
+        private static string[,] QueryAllData(OracleConnection conn, string[] columnNames)
         {
-            string[,] data;
+            string[,] data = {};
             int rowIndex = 0;
             DbDataReader reader = DBOracleUtils.ExecuseQuery(conn, "SELECT * from na_r_acs_tranfertimejob_vw");
-            using (reader)
+            DbDataReader readerCount = DBOracleUtils.ExecuseQuery(conn, "SELECT COUNT(*) from na_r_acs_tranfertimejob_vw");
+            int countRows = 0;
+            try
             {
+                if (readerCount.HasRows)
+                {
+                    readerCount.Read();
+                    countRows = readerCount.GetInt32(0);
+                }
                 if (reader.HasRows)
                 {
+                    data = new string[countRows, columnNames.Length];
                     while (reader.Read())
                     {
                         for (int index = 0; index < columnNames.Length; index++)
                         {
                             int empNameIndex = reader.GetOrdinal(columnNames[index]);
-                            string empName = reader.GetString(empNameIndex);
+                            string empName = reader.GetValue(empNameIndex).ToString();
                             data[rowIndex, index] = empName;
-                            
-                        }
 
+                        }
+                        rowIndex++;
                     }
                 }
+            }
+            catch (Exception ex)
+            {
+                Console.WriteLine("Error: " + ex);
+                Console.WriteLine(ex.StackTrace);
+            }
+            finally
+            {
+                reader.Dispose();
             }
             return data;
         }
 
         private static void CronTabHandler()
         {
+            Console.WriteLine("Generate excel file...");
             OracleConnection conn = GetDBConnection();
+            string path = "F:\\test.xlsx";
             try
             {
                 conn.Open();
-                string[,] data = QueryAllData(conn);
-                string[,] data1 = {
-                                 {"1", "2"},
-                                 {"3", "4"},
-                                 {"5", "6"}
-                             };
-                ExcelUtils.AppendRows("F:\\test.xlsx", data);
+                string[] columnNames = ExcelUtils.ReadRow(path, 1);
+                string[,] data = QueryAllData(conn, columnNames);
+                ExcelUtils.AppendRows(path, data);
             }
             catch (Exception ex)
             {
@@ -71,6 +86,7 @@ namespace DailyReportApp
                 conn.Close();
                 conn.Dispose();
             }
+            Console.WriteLine("Done!");
         }
 
 
