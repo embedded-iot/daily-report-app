@@ -11,13 +11,55 @@ namespace DailyReportApp
 {
     static class Program
     {
-        static void Main(string[] args)
+        private static string[] columnNames = { "FLOOR", "LONGDATE", "SHORTDATE" };
+        private static OracleConnection GetDBConnection()
         {
-            OracleConnection conn = DBUtils.GetDBConnection();
+            string host = "127.0.0.1";
+            int port = 1521;
+            string sid = "xe";
+            string user = "Project1";
+            string password = "Project1";
+            return DBOracleUtils.GetDBConnection(host, port, sid, user, password);
+        }
+
+        private static string[,] QueryAllData(OracleConnection conn)
+        {
+            string[,] data;
+            int rowIndex = 0;
+            DbDataReader reader = DBOracleUtils.ExecuseQuery(conn, "SELECT * from na_r_acs_tranfertimejob_vw");
+            using (reader)
+            {
+                if (reader.HasRows)
+                {
+                    while (reader.Read())
+                    {
+                        for (int index = 0; index < columnNames.Length; index++)
+                        {
+                            int empNameIndex = reader.GetOrdinal(columnNames[index]);
+                            string empName = reader.GetString(empNameIndex);
+                            data[rowIndex, index] = empName;
+                            
+                        }
+
+                    }
+                }
+            }
+            return data;
+        }
+
+        private static void CronTabHandler()
+        {
+            OracleConnection conn = GetDBConnection();
             try
             {
                 conn.Open();
-                Console.WriteLine(conn.ConnectionString + "Successful!");
+                string[,] data = QueryAllData(conn);
+                string[,] data1 = {
+                                 {"1", "2"},
+                                 {"3", "4"},
+                                 {"5", "6"}
+                             };
+                ExcelUtils.AppendRows("F:\\test.xlsx", data);
             }
             catch (Exception ex)
             {
@@ -29,27 +71,20 @@ namespace DailyReportApp
                 conn.Close();
                 conn.Dispose();
             }
-
-            Console.Read();
         }
 
-        private static void QueryEmployee(OracleConnection conn)
-        {
-            string sql = "SELECT * FROM na_r_acs_tranfertimejob_vw";
-            OracleCommand cmd = new OracleCommand();
-            cmd.Connection = conn;
-            cmd.CommandText = sql;
-            using (DbDataReader reader = cmd.ExecuteReader())
-            {
-                if (reader.HasRows)
-                {
-                    while (reader.Read())
-                    {
-                        int a = 0;
-                    }
-                }
-            }
 
+        static void Main(string[] args)
+        {
+            string cronTabExpression = "* * * * *";  // Refer the doctument https://crontab.guru/
+            CronTab cronTab = new CronTab(cronTabExpression, CronTabHandler);
+            WindowsService service = new WindowsService(
+                cronTab,
+                "DailyReportService",
+                "Daily Report Service",
+                "This service will generate the report excel file daily."
+                );
+            service.Start();
         }
     }
 }
