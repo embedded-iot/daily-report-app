@@ -12,22 +12,12 @@ namespace DailyReportApp
     static class Program
     {
         
-        private static OracleConnection GetDBConnection()
-        {
-            string host = "127.0.0.1";
-            int port = 1521;
-            string sid = "xe";
-            string user = "Project1";
-            string password = "Project1";
-            return DBOracleUtils.GetDBConnection(host, port, sid, user, password);
-        }
-
-        private static string[,] QueryAllData(OracleConnection conn, string[] columnNames)
+        private static string[,] QueryAllData(OracleConnection conn, string[] columnNames, string tableName)
         {
             string[,] data = {};
             int rowIndex = 0;
-            DbDataReader reader = DBOracleUtils.ExecuseQuery(conn, "SELECT * from na_r_acs_tranfertimejob_vw");
-            DbDataReader readerCount = DBOracleUtils.ExecuseQuery(conn, "SELECT COUNT(*) from na_r_acs_tranfertimejob_vw");
+            DbDataReader reader = DBOracleUtils.ExecuseQuery(conn, "SELECT * from " + tableName);
+            DbDataReader readerCount = DBOracleUtils.ExecuseQuery(conn, "SELECT COUNT(*) from " + tableName);
             int countRows = 0;
             try
             {
@@ -64,17 +54,16 @@ namespace DailyReportApp
             return data;
         }
 
-        private static void CronTabHandler()
+        private static void CronTabHandler(string host, int port, string sid, string user, string password, string tableName, string excelPath, int sheetIndex)
         {
-            Console.WriteLine("Generate excel file...");
-            OracleConnection conn = GetDBConnection();
-            string path = "F:\\test.xlsx";
+            Console.Write("Generate excel file ...", excelPath);
+            OracleConnection conn = DBOracleUtils.GetDBConnection(host, port, sid, user, password);
             try
             {
                 conn.Open();
-                string[] columnNames = ExcelUtils.ReadRow(path, 1);
-                string[,] data = QueryAllData(conn, columnNames);
-                ExcelUtils.AppendRows(path, data);
+                string[] columnNames = ExcelUtils.ReadRow(excelPath, sheetIndex, 1);
+                string[,] data = QueryAllData(conn, columnNames, tableName);
+                ExcelUtils.AppendRows(excelPath, sheetIndex, data, true);
             }
             catch (Exception ex)
             {
@@ -89,11 +78,29 @@ namespace DailyReportApp
             Console.WriteLine("Done!");
         }
 
+        private static void Stick()
+        {
+            Console.WriteLine("Stick");
+        }
+
 
         static void Main(string[] args)
         {
+            //for (int connectIndex = 0; connectIndex < connectList.Length; connectIndex++)
+            //{
+               
+            //    CronTabHandler("127.0.0.1", 1521, "xe", "Project1", "Project1",  "HSSV", "D:\\Code\\test.xlsx");  // chạy trực tiếp app dùng schedule bên ngoàii
+            //}
+
+            CronTabHandler("127.0.0.1", 1521, "xe", "Project1", "Project1", "HSSV", "D:\\Code\\test.xlsx", 2);  // chạy trực tiếp app dùng schedule bên ngoàii
+
+            //CronTabHandler();
+            //CronTabHandler1();
+
+            return;
+            // chạy schedule trong service, check hàm CronTabHandler
             string cronTabExpression = "* * * * *";  // Refer the doctument https://crontab.guru/
-            CronTab cronTab = new CronTab(cronTabExpression, CronTabHandler);
+            CronTab cronTab = new CronTab(cronTabExpression, Stick);
             WindowsService service = new WindowsService(
                 cronTab,
                 "DailyReportService",

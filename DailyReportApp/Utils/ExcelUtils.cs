@@ -9,11 +9,12 @@ namespace DailyReportApp
 {
     class ExcelUtils
     {
-        public static void AppendRows(string path, string[,] rows)
+        public static void AppendRows(string excelPath, int sheetIndex, string[,] rows, bool isHasBorder)
         {
             Excel.Application excel = new Excel.Application();
-            Excel.Workbook sheet = excel.Workbooks.Open(path);
-            Excel.Worksheet x = excel.ActiveSheet as Excel.Worksheet;
+            Excel.Workbook sheet = excel.Workbooks.Open(excelPath);
+            //Excel.Worksheet x = excel.ActiveSheet as Excel.Worksheet;
+            Excel.Worksheet x = (Excel.Worksheet)sheet.Worksheets[sheetIndex];
             Excel.Range userRange = x.UsedRange;
             int countRecords = userRange.Rows.Count;
             int startIndex = countRecords + 1;
@@ -22,6 +23,11 @@ namespace DailyReportApp
                 for (int columnIndex = 0; columnIndex < rows.GetLength(1); columnIndex++)
                 {
                     x.Cells[startIndex + rowIndex, columnIndex + 1] = rows[rowIndex, columnIndex];
+                    if (isHasBorder)
+                    {
+                        x.Cells[startIndex + rowIndex, columnIndex + 1].Borders.LineStyle = Excel.XlLineStyle.xlContinuous;   
+                    }
+                    
                 }
             }
                 
@@ -29,11 +35,11 @@ namespace DailyReportApp
             excel.Quit();
         }
 
-        public static string[] ReadRow(string path, int rowIndex)
+        public static string[] ReadRow(string path, int sheetIndex, int rowIndex)
         {
             Excel.Application excel = new Excel.Application();
             Excel.Workbook sheet = excel.Workbooks.Open(path);
-            Excel.Worksheet x = excel.ActiveSheet as Excel.Worksheet;
+            Excel.Worksheet x = (Excel.Worksheet)sheet.Worksheets[sheetIndex];
             Excel.Range userRange = x.UsedRange;
             
             int countColumns = userRange.Columns.Count;
