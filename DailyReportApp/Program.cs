@@ -11,10 +11,10 @@ namespace DailyReportApp
 {
     static class Program
     {
-        
+
         private static string[,] QueryAllData(OracleConnection conn, string[] columnNames, string tableName)
         {
-            string[,] data = {};
+            string[,] data = { };
             int rowIndex = 0;
             DbDataReader reader = DBOracleUtils.ExecuseQuery(conn, "SELECT * from " + tableName);
             DbDataReader readerCount = DBOracleUtils.ExecuseQuery(conn, "SELECT COUNT(*) from " + tableName);
@@ -28,12 +28,13 @@ namespace DailyReportApp
                 }
                 if (reader.HasRows)
                 {
-                    data = new string[countRows, columnNames.Length];
+                    int countColumn = columnNames.Length > 0 ? columnNames.Length : reader.FieldCount;
+                    data = new string[countRows, countColumn];
                     while (reader.Read())
                     {
-                        for (int index = 0; index < columnNames.Length; index++)
+                        for (int index = 0; index < countColumn; index++)
                         {
-                            int empNameIndex = reader.GetOrdinal(columnNames[index]);
+                            int empNameIndex = columnNames.Length > 0 ? reader.GetOrdinal(columnNames[index]) : index;
                             string empName = reader.GetValue(empNameIndex).ToString();
                             data[rowIndex, index] = empName;
 
@@ -44,7 +45,7 @@ namespace DailyReportApp
             }
             catch (Exception ex)
             {
-                Console.WriteLine("Error: " + ex);
+                Console.WriteLine("QueryAllData Error: " + ex);
                 Console.WriteLine(ex.StackTrace);
             }
             finally
@@ -56,14 +57,22 @@ namespace DailyReportApp
 
         private static void CronTabHandler(string host, int port, string sid, string user, string password, string tableName, string excelPath, int sheetIndex)
         {
-            Console.Write("Generate excel file ...", excelPath);
+            Console.WriteLine("Write Data In ==>" + " " + excelPath);
             OracleConnection conn = DBOracleUtils.GetDBConnection(host, port, sid, user, password);
+            //Console.WriteLine("Connecting" + DateTime.Now);
             try
             {
                 conn.Open();
-                string[] columnNames = ExcelUtils.ReadRow(excelPath, sheetIndex, 1);
+                // Console.WriteLine("Read columnNames" + DateTime.Now);
+                //string[] columnNames = ExcelUtils.ReadRow(excelPath, sheetIndex, 1);
+                string[] columnNames = {}; // Nếu column name = {}, thì sẽ ghi toàn bộ giữ liệu từ DB tới excel
+                //Console.WriteLine("QueryAllData" + DateTime.Now);
                 string[,] data = QueryAllData(conn, columnNames, tableName);
-                ExcelUtils.AppendRows(excelPath, sheetIndex, data, true);
+                //Console.WriteLine("Rows: " + data.GetLength(0));
+                //Console.WriteLine("Columns: " + data.GetLength(1));
+                //Console.WriteLine("AppendRows" + DateTime.Now);
+                //ExcelUtils.AppendRowsNew(excelPath, sheetIndex, data, true);
+                ExcelUtils.AppendRowsNew(excelPath, sheetIndex, data, true);
             }
             catch (Exception ex)
             {
@@ -75,39 +84,35 @@ namespace DailyReportApp
                 conn.Close();
                 conn.Dispose();
             }
-            Console.WriteLine("Done!");
+            Console.WriteLine("Successful!");
         }
-
-        private static void Stick()
-        {
-            Console.WriteLine("Stick");
-        }
-
-
         static void Main(string[] args)
-        {
-            //for (int connectIndex = 0; connectIndex < connectList.Length; connectIndex++)
+        {   // chạy theo schedule 
+            string svn = "D:\\Code\\SVN LOCAL\\test.xlsx";
+            bool isUpdated = SharpSVNAgent.SvnCommit(svn, "Update Today");
+            //if (!isUpdated)
             //{
-               
-            //    CronTabHandler("127.0.0.1", 1521, "xe", "Project1", "Project1",  "HSSV", "D:\\Code\\test.xlsx");  // chạy trực tiếp app dùng schedule bên ngoàii
+            //    Console.WriteLine("Update failure");
+            //    return;
             //}
-
-            CronTabHandler("127.0.0.1", 1521, "xe", "Project1", "Project1", "HSSV", "D:\\Code\\test.xlsx", 2);  // chạy trực tiếp app dùng schedule bên ngoàii
-
-            //CronTabHandler();
-            //CronTabHandler1();
-
-            return;
-            // chạy schedule trong service, check hàm CronTabHandler
-            string cronTabExpression = "* * * * *";  // Refer the doctument https://crontab.guru/
-            CronTab cronTab = new CronTab(cronTabExpression, Stick);
-            WindowsService service = new WindowsService(
-                cronTab,
-                "DailyReportService",
-                "Daily Report Service",
-                "This service will generate the report excel file daily."
-                );
-            service.Start();
+            Console.WriteLine("DAILY REPORT TRANFERSJOB");
+            
+            CronTabHandler("127.0.0.1", 1521, "xe", "Project2", "Project2", "na_r_acs_tranfertimejob_vw", svn, 1);
+            //CronTabHandler("127.0.0.1", 1521, "xe", "Project2", "Project2", "na_r_acs_tranfertimejob_vw", svn, 1);
+            //CronTabHandler("127.0.0.1", 1521, "xe", "Project1", "Project1", "hssv", "D:\\Code\\Svn\\test.xlsx", 2);
+            //CronTabHandler("127.0.0.1", 1521, "xe", "Project2", "Project2", "hssv", "D:\\Code\\Svn\\test.xlsx", 2);
+            //Console.WriteLine("Commiting...");
+            //return;
+            bool isCommited = SharpSVNAgent.SvnCommit(svn, "Commit Today");
+            if (isCommited)
+            {
+                Console.WriteLine("Commited sucessful");
+            }
+            else
+            {
+                Console.WriteLine("Commited failure");
+            }
+            Console.ReadKey();
         }
     }
 }
